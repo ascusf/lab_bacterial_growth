@@ -9,6 +9,7 @@ ensure they are within acceptable ranges.
 Do list:
     1. collected growth data
     2. lagged time, death rate, death time
+    3. How does Broth impact growth rate
 
 Classes:
     VolumeInformation: Holds volume-related parameters.
@@ -37,7 +38,9 @@ Andrew Chadwell June 28, 2024
 # -*- coding: utf-8 -*-
 
 from numpy import math, zeros, log, exp
-from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot
+from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot,legend
+import numpy as np
+from ecoli_data import *
 
 class VolumeInformation:
     '''
@@ -45,26 +48,32 @@ class VolumeInformation:
     '''
     def __init__(self,total_volume=25, sample_volume=200, dilute_volume=1800):
         '''
+        Initialize the VolumeInformation class with the provided volumes.
+
         Parameters
         ----------
         total_volume : int
-            The default is 25.
+            Total volume for the simulation (default is 25).
         sample_volume : int
-            The default is 200.
+            Sample volume for the simulation (default is 200).
         dilute_volume : int
-            The default is 1800.
+            Dilute volume for the simulation (default is 1800).
         Returns
         -------
-        None.
-
+        None
         '''
         self.total_volume = total_volume
         self.sample_volume = sample_volume
         self.dilute_volume = dilute_volume
     def get_volumes(self):
         '''
-        Returns volumes variables
-        '''
+       Get the volume information.
+
+       Returns
+       -------
+       dict
+           A dictionary containing the total volume, sample volume, and dilute volume.
+       '''
         return {
     'total_volume': self.total_volume,
     'sample_volume': self.sample_volume,
@@ -83,20 +92,20 @@ class TimeInformation:
         self.final_time = final_time
         '''
         Initialize the TimeInformation class with parameters for bacterial growth simulation.
-    
+
         Parameters
         ----------
         target_time : int or float, optional
             The time in minutes at which the target cell count is desired. Default is 20 minutes.
         lagged_time : int or float, optional
-            The time in minutes during which the bacterial population remains 
+            The time in minutes during which the bacterial population remains
             constant before starting exponential growth. Default is 120 minutes (2 hours).
         double_time : int or float, optional
-            The time in minutes required for the bacterial population to double 
+            The time in minutes required for the bacterial population to double
             in size. Default is 20 minutes.
         final_time : int or float, optional
             The final time in minutes up to which the simulation is run. Default is 400 minutes.
-    
+
         Attributes
         ----------
         target_time : int or float
@@ -113,6 +122,21 @@ class CellInformation:
     Class to hold cell information for bacterial growth simulation.
     '''
     def __init__(self,cell_mass=1e-6, cell_per_volume=1E9):
+        '''
+        Initialize the CellInformation class with the provided cell mass and cell count per volume.
+
+        Parameters
+        ----------
+        cell_mass : float
+            Mass of a single cell in grams (default is 1e-6).
+        cell_per_volume : float
+            Number of cells per unit volume (default is 1E9).
+
+        Returns
+        -------
+        None
+        '''
+
         self.cell_mass = cell_mass
         self.cell_per_volume = cell_per_volume
 class Plot:
@@ -208,17 +232,108 @@ class BacterialGrowth:
     '''
     Class to simulate bacterial growth using given parameters.
     '''
-    def __init__(self,initial_read=1,volume_information=None,
+    def __init__(self,initial_read=1, data=None, volume_information=None,
                    time_information=None, cell_information=None):
+        '''
+        Initialize the BacterialGrowth class with the provided parameters.
+
+        Parameters
+        ----------
+        initial_read : int or float
+        Initial read from the spectrometer in micrograms/mL. Default is 1.
+        data : dict
+        Data for plotting bacterial growth. Default is None.
+        volume_information : VolumeInformation
+        Instance of VolumeInformation class. Default is None.
+        time_information : TimeInformation
+        Instance of TimeInformation class. Default is None.
+        cell_information : CellInformation
+        Instance of CellInformation class. Default is None.
+
+        Returns
+        -------
+        None
+        '''
+
         self.initial_read = initial_read
+        self.data = data
         self.volume_information = volume_information or VolumeInformation()
         self.time_information = time_information or TimeInformation()
         self.cell_information = cell_information or CellInformation()
         self.validate_inputs()
 
+    def plot_data(self, bacterial_title='Bacterial Growth'):
+        '''
+        Plot the bacterial growth data.
+
+        Parameters
+        ----------
+        data : dict
+            Data dictionary containing time points and corresponding bacterial growth measurements.
+        bacterial_title : str, optional
+            Title for the bacterial growth plot. Default is 'Bacterial Growth'.
+
+        Returns
+        -------
+        None
+        '''
+        # extract data
+        data = self.data
+        if not data:
+            print("No data available to plot.")
+            return
+        minutes = data['minute'][1:-1]
+        data_vectors = {key: values[1:-1] for key, values in data.items()
+                        if key != 'minute'}
+
+        # calculate the data average points.
+        average = []
+        for i in range(len(minutes)):
+            data_points = [data[i] for data in data_vectors.values() if data[i] is not None]
+            if data_points:
+                average.append(np.mean(data_points))
+            else:
+                average.append(None)
+
+        # Plot the data
+        markers = ['.','o','*','+','x','>','<']  # Different markers for different datasets
+        for i, (key, values) in enumerate(data_vectors.items()):
+            plot(minutes, values, label=f'Data {key}',
+                 marker=markers[i % len(markers)], linestyle='', color='k')
+
+        plot(minutes, average, label='Average', linestyle='-', color='k')
+
+        xlabel('Time (minutes)')
+        ylabel('OD_600 (Micro_g/mL)')
+        title('Bacterial Growth Over Time')
+        legend()
+        grid(False)
+        show()
+        print(bacterial_title)
+
+    def max_od600(self):
+        '''
+        Calculate the maximum OD600 value based on total volume.
+
+        Returns
+        -------
+        max_od : float
+            Maximum concentration in micro_g/mL.
+        '''
+        total_volume = self.volume_information.total_volume
+        if total_volume / 1000 > 0 and total_volume / 1000 <= 10:
+            max_od = total_volume / 1000  # micro_g/mL the maximum cell per volume
+        elif total_volume > 10:
+            max_od = 10  # micro_g/mL the maximum cell per volume
+        return max_od
+
     def validate_inputs(self):
         '''
         Validate inputs to ensure they are within acceptable ranges or types.
+
+        Returns
+        -------
+        None
         '''
         if (not isinstance(self.initial_read, (int, float))
             or self.initial_read < 0):
@@ -260,6 +375,33 @@ class BacterialGrowth:
             or self.cell_information.cell_per_volume <= 0):
             raise ValueError("Cell per volume must be a positive number.")
 
+        if self.data is not None:
+            if not isinstance(self.data, dict):
+                raise ValueError("Data must be a dictionary.")
+
+            if "minute" not in self.data:
+                raise ValueError("Data dictionary must contain the key 'minute'.")
+
+            minutes = self.data["minute"]
+
+            if not all(isinstance(m, (int, float)) and m >= 0 for m in minutes):
+                raise ValueError("'minute' list must contain non-negative numbers.")
+
+            data_length = len(minutes)
+
+            for key, values in self.data.items():
+                if key != "minute":
+                    if not isinstance(values, list):
+                        raise ValueError(f"""All values in the data
+                     dictionary must be lists. Error with key: {key}""")
+                    if len(values) != data_length:
+                        raise ValueError(f"""All lists in the data
+                    dictionary must be of the same length as 'minute'
+                    list. Error with key: {key}""")
+                    if not all(isinstance(v, (int, float, type(None))) for v in values):
+                        raise ValueError(f"""All elements in the data lists
+                        must be numbers or None. Error with key: {key}""")
+
     def bacterial_growth(self):
 
         """
@@ -269,6 +411,7 @@ class BacterialGrowth:
 
         Inputs:
         initial_read: Initial read from spectrometer in micrograms/mL
+        data: Collected data x-axis (minutes) and y-axis (OD600 micrograms/mL)
         total_volume: Total volume of sample in mL
         lagged_time: Time in minutes for the bacterial population to stay constant
         target_time: Time in minutes for the desired CFU count
@@ -285,8 +428,10 @@ class BacterialGrowth:
         time: Time intervals in minutes
         VOLUME: Total volume of sample and diluent in mL
         rate: Growth rate in 1/minute
-        max_count: Maximum number of cells per volume in micrograms/mL
+        max_od: Maximum concentration in micrograms/mL
         read: Spectrometer read in micrograms/mL
+        1 OD600 = saturation
+        1 OD600 = 10 microgram/mL
 
         Outputs:
         - Prints all input parameters
@@ -306,6 +451,7 @@ class BacterialGrowth:
         are those of a cylinder 1.0-2.0 micrometers long, with radius about
         0.5 micrometers. They double in population every 20 minutes. Their mass is
         1e-6 micr_g. They become saturated per volume for 1e9 cell/mL.
+        Cell dry weight	3 x 10-13 g
 
         - Yeast cell has an average diameter between 3 and 4 micrometers (μm),The largest
         yeast cells can be as big as 40 μm. Yeast cells can also be oval, spherical,
@@ -314,6 +460,7 @@ class BacterialGrowth:
         per volume for (1e7 to 1e8) cells/mL.
         """
         initial_read = self.initial_read
+       # data = self.data
         total_volume = self.volume_information.total_volume  # Accessing through VolumeInformation
         target_time = self.time_information.target_time
         lagged_time = self.time_information.lagged_time
@@ -328,16 +475,18 @@ class BacterialGrowth:
         read = zeros(final_time+1) #colony forming unit
         time = zeros(final_time+1) #MINUTE
         rate = log(2)/double_time #1/minutes
-        max_count = total_volume*cell_per_volume*cell_mass  #micro_g/mL the maximum cell per volume
-        dilute_conversion[0:lagged_time] = (
+
+        max_od = BacterialGrowth.max_od600(self)
+
+        dilute_conversion[0:round(lagged_time)] = (
             initial_read*((sample_volume + dilute_volume)/sample_volume)
             *total_volume/cell_mass #colony forming unit
             )
-        read[0:lagged_time] = initial_read
+        read[0:round(lagged_time)] = initial_read
 
-        for index in range(lagged_time, final_time+1, 1):
+        for index in range(round(lagged_time), final_time+1, 1):
             read[index] = (
-                max_count / (1 + (max_count - initial_read)/initial_read
+                max_od / (1 + (max_od - initial_read)/initial_read
                              *exp(-rate * (index-lagged_time+1))) #micr_g/mL
                 )
             dilute_conversion[index] = (read[index]*((sample_volume + dilute_volume)
@@ -348,6 +497,8 @@ class BacterialGrowth:
         target_amount, target_original_count = (
         Plot.plot_result(self, target_time, read, dilute_conversion, time)
         )
+
+        BacterialGrowth.plot_data(self,bacterial_title='Bacterial Growth')
 
         print_variables = {
             'initial_read': initial_read,
@@ -365,17 +516,14 @@ class BacterialGrowth:
         Print.print_information(self, print_variables)
 
         return read, dilute_conversion
- 
-    
-# ECOLI = bacterial_growth(initial_read=1, total_volume=1000, lagged_time=2*60,
-   #                         target_time=40.0, double_time=20,
-   #                       final_time=400, cell_mass=1e-6, cell_per_volume=1E9,
-   #                       sample_volume=200, dilute_volume=1800)
-# volume_info = VolumeInformation(total_volume=25, sample_volume=200,
-#                                 dilute_volume=1800)
-# time_info = TimeInformation(lagged_time=2*60,target_time=60*7,
-#                             double_time=60*2.5, final_time=60*10)
-# cell_info = CellInformation(cell_mass=47.65e-6, cell_per_volume=1E7)
-# yeast_read, original_cfu = BacterialGrowth(initial_read=0.48,
-#                     volume_information=volume_info,time_information=time_info,
-#                     cell_information=cell_info).bacterial_growth()
+
+
+# E.coli test
+volume_info = VolumeInformation(total_volume=10000, sample_volume=200,
+                                dilute_volume=1800)
+time_info = TimeInformation(lagged_time=0*3,target_time=200,
+                            double_time=180, final_time=2000)
+cell_info = CellInformation(cell_mass=1e-6, cell_per_volume=1e9)
+ecoli_read, original_cfu = BacterialGrowth(initial_read=0.65,data=ecoli_initial_4c_7_11_24,
+                    volume_information=volume_info,time_information=time_info,
+                    cell_information=cell_info).bacterial_growth()
