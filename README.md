@@ -95,11 +95,9 @@ bacterial_growth(self): Performs the bacterial growth simulation and analysis.
 
 
 # Run the bacterial growth simulation and plots
-
-- with collected data use calculated_double_time function in class Plot. It will
-- give a plotted line that correspondes with the data by changing the initial
-- initial read and degree of a polynomial.
-cal_double_time = Plot(data=test,initial_read=initial_read).calculate_double_time(deg=3)
+- with collected data use calculated_double_time function in class Plot.
+- The code calculates the slopes between each point, finds the index of the maximum slope and uses linear equation to estimate the doubling time.
+cal_double_time = Plot(data=test,initial_read=initial_read).calculate_double_time()
 
 volume_info = VolumeInformation(total_volume=total_volume, sample_volume=200,
                         dilute_volume=1800)
@@ -109,10 +107,9 @@ cell_info = CellInformation(cell_mass=1e-6, cell_per_volume=1e9)
 config = GrowthConfiguration(volume_information=volume_info,
                             time_information=time_info,
                             cell_information=cell_info)
-- This subplots the concentration micrograms/mL vs time in minututes and Population
-- size in colony-forming units vs time in minutes using the model equations.
-- A second is plotted using collected data and the model equations. It returns printed
-- inputs and outputs.
+- subplots the concentration micrograms/mL vs time in minututes and Population size in colony-forming units vs time in minutes using the model equations.
+- A second plot is plotted using collected data and the model equations.
+- It returns printed inputs and outputs.
 ecoli_read, original_cfu = BacterialGrowth(initial_read=initial_read,
    data=test,configuration=config).bacterial_growth()
 - If data is provided, the plot_data function in Plot class returns a plot of
@@ -240,7 +237,7 @@ Plots data if given, which can be plotted with the model or alone.
 
 Linear x-axis and linear y-axis
 
-Returns read array and dilute_conversion array
+Returns read array and dilute conversion array
 
 # Contributions 
 
