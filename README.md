@@ -1,5 +1,5 @@
 # Bacterial-Growth 
-# University of South Florida laboratories - Bacterial Growth Simulation 
+# laboratories - Bacterial Growth Simulation 
 
 ## Overview 
   
