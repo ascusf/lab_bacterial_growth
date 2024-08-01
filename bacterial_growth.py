@@ -118,6 +118,64 @@ from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot,legen
 from numpy import mean,array,arange,zeros,argmax,exp,poly1d,polyfit,diff,log
 from ecoli_data import *
 
+def average_initial_od(data=None):
+    '''
+    Calculate the average initial optical density (OD) from the provided data.
+
+    Parameters
+    ----------
+    data : dict
+        Data collected using BioSpectrometer kinetic instrument. 
+        Should contain 'minute' and other keys with lists of measurements.
+
+    Returns
+    -------
+    float
+        The average initial OD if data is available, otherwise None.
+    '''
+    
+    if not data:
+        print("No data available to plot.")
+        return
+    # Extract Data
+    minutes = data['minute']
+    data_vectors = {key: values for key, values in data.items()
+                    if key not in ('minute', 'total_volume')}
+
+    # Calculate the initial OD average point.
+    for i in range(len(minutes)):
+        data_points = [data[i] for data in data_vectors.values() if data[i] is not None]
+        if data_points:
+            return mean(data_points)
+            
+
+def linear_growth(data=None,time=None):
+    '''
+    '''
+    copy_minute = copy.copy(data['minute'])
+    average = Plot(data=data).calculate_data_average()
+
+    # Filter out None values
+    find_none = [i for i, item in enumerate(average) if item is None]
+    average = [item for i, item in enumerate(average) if i not in find_none]
+    copy_minute = [item for item in copy_minute if item not in find_none]
+
+    # Calculate the slopes between each pair of points
+    differences = diff(array(average)) / diff(array(copy_minute))
+
+    # Find the index of the maximum slope
+    max_index = argmax(differences)
+
+    # Use the points around the maximum slope to fit a line
+    coefficients = polyfit(array(copy_minute)[max_index:max_index + 2],
+                           array(average)[max_index:max_index + 2], 1)
+
+    # Calculate the time to double the OD600
+    polynomial = poly1d(coefficients)
+    
+    return polynomial[1] * time + polynomial[0]  
+
+
 class VolumeInformation:
     '''
     Class to hold volume information for bacterial growth simulation.

@@ -51,40 +51,46 @@ def main():
 
     # E.coli test is a dictionary of data. If no data is provided use 
     # test = 'None' 
-    test = ecoli_7_17_24 # dictionary of the data transfer from ecoli_data.py
+    test = ecoli_initial_4c_7_2_24# dictionary of the data transfer from ecoli_data.py
+    
+    # average_initial_od(data=test)
+    # #linear_growth(data=test)
+    # calculate_stationary_od(data=test)
+    
     
     # ---------- Option 1 ----------------------------------------------------
     # enter parameters without data:
     if test == None:    
         # Data attained from inputs in the Eppendorf BioSpectrometer kinetic 
-        initial_read =  0.935 # Initial average OD600 reading in micrograms/mL
+        initial_read =  0.5 # Initial average OD600 reading in micrograms/mL
         sample_volume= 200 # Volume of the sample in microliters
         dilute_volume= 1800 # Volume of diluent added in microliters
-        total_volume = 5000 # total volume from the sample
+        total_volume = 4200 # total volume from the sample
+        #total_volume = test['total_volume'][0]*1000
     
         # The User desired input
         target_time = 300 # Time in minutes for the desired CFU size
-        lagged_time = 20 # bacteria to stabilize to its environment at the beginning of life
-        double_time = 20 # bacterial growth 
+        lagged_time = 120 # bacteria to stabilize to its environment at the beginning of life
+        double_time = 70 # bacterial growth 
         
         # Value attained from viewing the data and plots
-        final_time = 550 # Time in minutes for the disired end time
+        final_time = 1000 # Time in minutes for the disired end time
     
     # ---------- Option 2 ----------------------------------------------------
     else: # enter parameters with data:
         # Data attained from inputs in the Eppendorf BioSpectrometer kinetic 
-        initial_read =  0.935 # Initial average OD600 reading in micrograms/mL
+        initial_read = average_initial_od(data=test) # Initial average OD600 reading in micrograms/mL
         sample_volume= 200 # Volume of the sample in microliters
         dilute_volume= 1800 # Volume of diluent added in microliters
-        total_volume = 5000 # total volume from the sample
-    
+        total_volume = 4300 # total volume from the sample
+        total_volume = test['total_volume'][0]*1000
         # The User desired input
-        target_time = 300 # Time in minutes for the desired CFU size
+        target_time = 120 # Time in minutes for the desired CFU size
         
         # poly_fun_is_valid = 'yes': when the double time can be calculated
         # poly_fun_is_valid = 'no': when the double time will be a enter as a 
         # parameter by the user.
-        poly_fun_is_valid = 'yes'
+        poly_fun_is_valid = 'no'
 
     #-----------------Calculations---------------------------------------------
     if test == None:                                            
@@ -97,6 +103,8 @@ def main():
         config = GrowthConfiguration(volume_information=volume_info,
                                     time_information=time_info,
                                     cell_information=cell_info)
+        
+
         # This subplots the concentration micrograms/mL vs time in minututes and Population
         # size in colony-forming units vs time in minutes using the model equations.
         # A second is plotted using collected data and the model equations. It returns printed
@@ -109,6 +117,9 @@ def main():
         
     else:
         total_volume = test['total_volume'][0]*1000 # total volume from the sample
+        initial_read = average_initial_od(data=test) # average initial read 
+        final_od = calculate_stationary_od(data=test)
+        
         # If data is provided, the plot_data function in Plot class returns a plot of
         # all the data runs with their average line.
         Plot(data=test, final_time=test['minute'][-1]).plot_data(bacterial_title='Bacterial Growth')
@@ -132,12 +143,13 @@ def main():
             config = GrowthConfiguration(volume_information=volume_info,
                                         time_information=time_info,
                                         cell_information=cell_info)
+            
             # This subplots the concentration micrograms/mL vs time in minututes and Population
             # size in colony-forming units vs time in minutes using the model equations.
             # A second is plotted using collected data and the model equations. It returns printed
             # inputs and outputs.
             ecoli_read, original_cfu = BacterialGrowth(initial_read=initial_read,
-               data=test,configuration=config).bacterial_growth()
+               final_od=final_od, data=test,configuration=config).bacterial_growth()
             # Ask user if the current double time is suitable
             user_input = input("Is the current double time suitable? (yes/no): ")
             if user_input.lower() == 'yes':

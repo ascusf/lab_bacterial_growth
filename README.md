@@ -1,5 +1,5 @@
 # Bacterial-Growth 
-# Stern Lab - Bacterial Growth Simulation 
+# University of South Florida laboratories - Bacterial Growth Simulation 
 
 ## Overview 
   
@@ -10,6 +10,8 @@ The bacterial_growth.py is a comprehensive bacterial growth simulation tool desi
 The call_bacterial_growth.py simulates bacterial growth using either predefined data or user input. It calculates and plots bacterial concentration and population size over time, with options for inputting experimental parameters directly or using provided data sets. 
 
 The ecoli_data.py collected data that can be call into scripts to analyze.
+
+I’m currently in the early stages of programming, and I have a lot of work ahead. My goal is to become familiar with Python and GitHub.
   
 
 ## Features 
@@ -253,7 +255,7 @@ Contributions are welcome! If you find any bugs or have suggestions for improvem
 
 ## Acknowledgements 
 
-Stern's Lab at University of South Florida 
+Students and Professors at University of South Florida 
 
   
 
@@ -276,3 +278,12 @@ Stern's Lab at University of South Florida
 8. **License**: License information. 
 
 9. **Acknowledgements**: Credits and acknowledgments. 
+
+Do list:
+    1. lagged time, death rate, death time
+    2. How does different Broth impact growth rate?
+    3. Calculation of lagged, double, and stable time in def calculation_measurements
+    4. create a separate script for different bacteria
+    5. create a separate script for different media
+    6. make most inputs calculated if data is provided. 
+    7. * find a better method to calculate double time.

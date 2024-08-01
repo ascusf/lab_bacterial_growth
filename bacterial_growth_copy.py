@@ -9,9 +9,10 @@ ensure they are within acceptable ranges.
 
 Do list:
     1. lagged time, death rate, death time
-    2. How does Broth impact growth rate?
+    2. How does different Broth impact growth rate?
     3. Calculation of lagged, double, and stable time in def calculation_measurements
-    4. created a separate script for different bacteria
+    4. create a separate script for different bacteria
+    5. create a separate script for different media
 
 Classes:
     VolumeInformation: Holds volume-related parameters.
@@ -117,6 +118,122 @@ import copy, math
 from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot,legend, xticks
 from numpy import mean,array,arange,zeros,argmax,exp,poly1d,polyfit,diff,log
 from ecoli_data import *
+
+def average_initial_od(data=None):
+    '''
+    Calculate the average initial optical density (OD) from the provided data.
+
+    Parameters
+    ----------
+    data : dict
+        Data collected using BioSpectrometer kinetic instrument. 
+        Should contain 'minute' and other keys with lists of measurements.
+
+    Returns
+    -------
+    float
+        The average initial OD if data is available, otherwise None.
+    '''
+    
+    if not data:
+        print("No data available to plot.")
+        return
+    # Extract Data
+    minutes = copy.copy(data['minute'])
+    data_vectors = {key: values for key, values in data.items()
+                    if key not in ('minute', 'total_volume')}
+
+    # Calculate the initial OD average point.
+    for i in range(len(minutes)):
+        data_points = [data[i] for data in data_vectors.values() if data[i] is not None]
+        if data_points:
+            return mean(data_points)
+ 
+
+def calculate_lagged():
+    return           
+
+def linear_growth(data=None,time=None):
+    '''
+    '''
+    copy_minute = copy.copy(data['minute'])
+    average = Plot(data=data).calculate_data_average()
+
+    # Filter out None values
+    find_none = [i for i, item in enumerate(average) if item is None]
+    average = [item for i, item in enumerate(average) if i not in find_none]
+    copy_minute = [item for item in copy_minute if item not in find_none]
+
+    # Calculate the slopes between each pair of points
+    differences = diff(array(average)) / diff(array(copy_minute))
+
+    # Find the index of the maximum slope
+    max_index = argmax(differences)
+
+    # Use the points around the maximum slope to fit a line
+    coefficients = polyfit(array(copy_minute)[max_index:max_index + 2],
+                           array(average)[max_index:max_index + 2], 1)
+
+    # Calculate the time to double the OD600
+    polynomial = poly1d(coefficients)
+    
+    return polynomial[1] * time + polynomial[0]  
+
+def poly_growth(data=None,time=None,deg=3):
+    '''
+    '''
+    copy_minute = copy.copy(data['minute'])
+    average = Plot(data=data).calculate_data_average()
+
+    # Filter out None values
+    find_none = [i for i, item in enumerate(average) if item is None]
+    average = [item for i, item in enumerate(average) if i not in find_none]
+    copy_minute = [item for item in copy_minute if item not in find_none]
+
+    # Calculate the slopes between each pair of points
+    differences = diff(array(average)) / diff(array(copy_minute))
+
+    # Find the index of the maximum slope
+    max_index = argmax(differences)
+
+    # Use the points around the maximum slope to fit a line
+    coefficients = polyfit(array(copy_minute)[max_index:max_index + 2],
+                           array(average)[max_index:max_index + 2], 1)
+
+    # Calculate the time to double the OD600
+    polynomial = poly1d(coefficients)
+    
+    return polynomial[1] * time + polynomial[0]  
+
+def calculate_stationary_od(data=None):
+    '''
+    Calculate the average steady state optical density (OD) from the provided data.
+
+    Parameters
+    ----------
+    data : dict
+        Data collected using BioSpectrometer kinetic instrument. 
+        Should contain 'minute' and other keys with lists of measurements.
+
+    Returns
+    -------
+    float
+        The average steady state OD if data is available, otherwise None.
+    '''
+    
+    if not data:
+        print("No data available to plot.")
+        return
+    # Extract Data
+    data_copy =  copy.copy(data)
+    minute = copy.copy(data_copy['minute'])
+    last_od = {key: values[-1] for key, values in data_copy.items()
+                   if key not in ('minute', 'total_volume')}
+    # Calculate the final OD average point.
+    last_od_vector = array(list(last_od.values()))
+    return mean(last_od_vector)
+# for i in range(len(minutes)):
+# data_points = [data[i] for data in data_vectors.values() if data[i] is not None]
 
 class VolumeInformation:
     '''
@@ -529,13 +646,13 @@ class Plot:
         
         # Calculate the time to double the OD600
         initial_value = y_fit[0]
-        target_value = initial_value * 2
+        target_value = initial_value / 2
         polynomial = poly1d(coefficients)
         
         # Find the time at which the OD600 doubles
         point_2 = (target_value - polynomial[0]) / polynomial[1]
         point_1 = (initial_value - polynomial[0]) / polynomial[1]
-        return point_2 - point_1
+        return point_1 - point_2
 
 
 class GrowthConfiguration:
@@ -569,7 +686,7 @@ class BacterialGrowth:
     '''
     Class to simulate bacterial growth using given parameters.
     '''
-    def __init__(self,initial_read=1, data=None, configuration=None):
+    def __init__(self,initial_read=1,final_od=5,data=None, configuration=None):
         '''
         Initialize the BacterialGrowth class with the provided parameters.
 
@@ -591,6 +708,7 @@ class BacterialGrowth:
         None
         '''
         self.initial_read = initial_read
+        self.final_od = final_od
         self.data = data
         self.volume_information = configuration.volume_information
         self.time_information = configuration.time_information
@@ -686,6 +804,7 @@ class BacterialGrowth:
         lagged_time = self.time_information.lagged_time
         final_time = self.time_information.final_time
         initial_read = self.initial_read
+        final_od = self.final_od
         sample_volume = self.volume_information.sample_volume
         dilute_volume = self.volume_information.dilute_volume
         total_volume = self.volume_information.total_volume
@@ -699,21 +818,29 @@ class BacterialGrowth:
             initial_read*((sample_volume + dilute_volume)/sample_volume)
             *total_volume/cell_mass #colony forming unit
             )
-        read[0:round(lagged_time)] = initial_read
-        
+        read[0:round(lagged_time)] = initial_read #micrograms/mL 
+        time[0:round(lagged_time)] = arange(0,round(lagged_time)) #minutes
         #
-        for index in range(round(lagged_time), final_time+1, 1):
-            read[index] = (
-                (BacterialGrowth.max_od600(self)) /
-                (1 + ((BacterialGrowth.max_od600(self)) - initial_read)/initial_read
-                              *exp(-(BacterialGrowth.calculate_growth_rate(self))
-                                  * (index-lagged_time+1))) #micr_g/mL
-                )
+        for index in range(round(lagged_time), 400+1, 1):
+            # read[index] = (
+            #     (BacterialGrowth.max_od600(self)) /
+            #     (1 + ((BacterialGrowth.max_od600(self)) - initial_read)/initial_read
+            #                   *exp(-(BacterialGrowth.calculate_growth_rate(self))
+            #                       * (index-lagged_time+1))) #micr_g/mL
+            #     )
+            read[index] = initial_read * exp(BacterialGrowth.calculate_growth_rate(self)*index)
+            # print(read[index])
+            # print(initial_read * (1 + BacterialGrowth.calculate_growth_rate(self))**index)
+            
             dilute_conversion[index] = (read[index]*((sample_volume + dilute_volume)
                             /sample_volume)*total_volume/cell_mass #unitless
                                     )
             time[index] = index #minutes
-
+         
+        read[400:final_time+1] = final_od
+        time[400:final_time+1] = arange(400,final_time+1) #minutes
+         
+            
         return dilute_conversion,read,time
 
     def print_information(self,target_amount,target_original_count):
@@ -753,7 +880,7 @@ class BacterialGrowth:
             'target_original_count': target_original_count
         }
         print(f'''INPUTS:\n-----------
-initial read: {print_variables['initial_read']} micrograms/mL
+initial read: {print_variables['initial_read']:.2f} micrograms/mL
 original sample volume: {print_variables['total_volume']/1000} mL
 lagged time: {print_variables['lagged_time']} minutes
 double time: {print_variables['double_time']:.2f} minutes
