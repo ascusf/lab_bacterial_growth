@@ -8,10 +8,10 @@ It includes functionality to plot the growth curves and validate inputs to
 ensure they are within acceptable ranges.
 
 Do list:
-    1. lagged time, death rate, death time
-    2. How does Broth impact growth rate?
-    3. Calculation of lagged, double, and stable time in def calculation_measurements
-    4. created a separate script for different bacteria
+    1. death rate, death time
+    2. How does different Broth impact growth rate?
+    3. create a separate script for different bacteria
+    4. create a separate script for different media
 
 Classes:
     VolumeInformation: Holds volume-related parameters.
@@ -23,6 +23,7 @@ Classes:
 
 Inputs:
     initial_read: Initial read from spectrometer in micrograms/mL
+    statuionary_od: Maximum reading from spectrometer in micrograms/mL 
     data: data collected using BioSpectrometer kinetic instrument
     total_volume: Total volume of sample in mL
     sample_volume: Volume of the sample in microliters
@@ -39,13 +40,12 @@ Calculations:
     - The target colony-forming units corresponding with target time.
     - The average data is calculated and plotted.
     - The calculation accounts for the lagged time and exponential growth of
-    bacteria restricted by the original total volume.
+        bacteria restricted by the original total volume.
     - The estimated double time for bacteria to double its size in minutes.
     - dilute_conversion: Corrected concentration considering dilution factor (unitless)
     - time: Time intervals in minutes
-    - VOLUME: Total volume of sample and diluent in mL
+    - total_volume: Total volume of sample and diluent in mL
     - rate: Growth rate in 1/minute
-    - max_od: Maximum concentration in micrograms/mL
     - read: Spectrometer read in micrograms/mL
     - 1 OD600 = saturation
     - 1 OD600 = 10 microgram/mL
@@ -65,35 +65,7 @@ Outputs:
     - Returns read array and dilute_conversion array
 
 Example:
-# E.coli test
-# E.coli test with data:
-test = ecoli_7_15_24 # dictionary of the data transfer from ecoli_data.py
-initial_read =  1 # Initial average OD600 reading in micrograms/mL
-total_volume = test['total_volume'][0]*1000 # total volume from the sample
-                                            # collected in mL*1000 micro Liter
 
-# with collected data use calculated_double_time function in class Plot. It will
-# give a plotted line that correspondes with the data by changing the initial
-# initial read and degree of a polynomial.
-cal_double_time = Plot(data=test,initial_read=initial_read).calculate_double_time(deg=3)
-
-volume_info = VolumeInformation(total_volume=total_volume, sample_volume=200,
-                        dilute_volume=1800)
-time_info = TimeInformation(lagged_time=0*3,target_time=200,
-                    double_time=cal_double_time, final_time=1500)
-cell_info = CellInformation(cell_mass=1e-6, cell_per_volume=1e9)
-config = GrowthConfiguration(volume_information=volume_info,
-                            time_information=time_info,
-                            cell_information=cell_info)
-# This subplots the concentration micrograms/mL vs time in minututes and Population
-# size in colony-forming units vs time in minutes using the model equations.
-# A second is plotted using collected data and the model equations. It returns printed
-# inputs and outputs.
-ecoli_read, original_cfu = BacterialGrowth(initial_read=initial_read,
-   data=test,configuration=config).bacterial_growth()
-# If data is provided, the plot_data function in Plot class returns a plot of
-# all the data runs with their average line.
-Plot(data=test).plot_data(bacterial_title='Bacterial Growth')
 
 Google Search:
 - Information about Escherichia coli and Saccharomyces yeast
@@ -101,7 +73,7 @@ Google Search:
 - Escherichia coli is a typical gram-negative rod bacterium. Its dimensions
 are those of a cylinder 1.0-2.0 micrometers long, with radius about
 0.5 micrometers. They double in population every 20 minutes. Their mass is
-1e-6 micr_g. They become saturated per volume for 1e9 cell/mL.
+1e-6 micro_grams. They become saturated per volume for 1e9 cell/mL.
 Cell dry weight	3 x 10-13 g
 
 - Yeast cell has an average diameter between 3 and 4 micrometers (μm),The largest
@@ -112,14 +84,17 @@ per volume for (1e7 to 1e8) cells/mL.
 
 Andrew June 28, 2024
 '''
+
 # -*- coding: utf-8 -*-
 import copy, math
-from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot,legend, xticks
-from numpy import mean,array,arange,zeros,argmax,exp,poly1d,polyfit,diff,log
+from pylab import plot,xlabel,ylabel,yscale,grid,title,show,figure,subplot,legend,xticks
+from numpy import mean,array,arange,zeros,argmax,exp,poly1d,polyfit,diff,log,std
+from scipy.stats import linregress
 from ecoli_data import *
 
 def average_initial_od(data=None):
     '''
+    
     Calculate the average initial optical density (OD) from the provided data.
 
     Parameters
@@ -132,13 +107,15 @@ def average_initial_od(data=None):
     -------
     float
         The average initial OD if data is available, otherwise None.
+    
     '''
     
     if not data:
         print("No data available to plot.")
         return
+   
     # Extract Data
-    minutes = data['minute']
+    minutes = copy.copy(data['minute'])
     data_vectors = {key: values for key, values in data.items()
                     if key not in ('minute', 'total_volume')}
 
@@ -147,11 +124,57 @@ def average_initial_od(data=None):
         data_points = [data[i] for data in data_vectors.values() if data[i] is not None]
         if data_points:
             return mean(data_points)
-            
+
+def calculate_lagged():
+    '''
+    
+    ??????
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    return           
 
 def linear_growth(data=None,time=None):
     '''
+
+    Estimates the linear growth of bacterial culture based on OD600 measurements.
+
+    This function calculates the growth rate by fitting a line to the points with
+    the steepest slope in the OD600 data. It returns the estimated OD600 value at 
+    a given time using the fitted line equation.
+
+    Parameters
+    ----------
+    data : dict, optional
+        A dictionary containing the experimental data. It should include a key 'minute'
+        that corresponds to the time points and other keys for OD600 values. The default 
+        is None.
+    time : float, optional
+        The time in minutes for which the OD600 value is to be estimated based on 
+        the linear growth model. The default is None.
+
+    Returns
+    -------
+    float
+        The estimated OD600 value at the specified time.
+
+    Notes
+    -----
+    - The function first calculates the average OD600 values and filters out any None 
+      values.
+    - It computes the slopes between consecutive time points and identifies the maximum 
+      slope to determine the linear growth phase.
+    - A linear fit (y = mx + b) is performed using the points around the maximum slope, 
+      and the fitted line equation is used to estimate the OD600 value at the specified 
+      time.
+
     '''
+    
+    # Retrieving data
     copy_minute = copy.copy(data['minute'])
     average = Plot(data=data).calculate_data_average()
 
@@ -175,13 +198,80 @@ def linear_growth(data=None,time=None):
     
     return polynomial[1] * time + polynomial[0]  
 
+def poly3_growth(data=None,time=None):
+    '''
+    
+    Estimates the polynomial degree of 3 growth of bacterial culture based on OD600 measurements.
+    
+    '''
+    # Retrieving data
+    copy_minute = copy.copy(data['minute'])
+    average = Plot(data=data).calculate_data_average()
+
+    # Filter out None values
+    find_none = [i for i, item in enumerate(average) if item is None]
+    average = [item for i, item in enumerate(average) if i not in find_none]
+    copy_minute = [item for item in copy_minute if item not in find_none]
+
+    # Calculate the slopes between each pair of points
+    differences = diff(array(average)) / diff(array(copy_minute))
+
+    # Find the index of the maximum slope
+    max_index = argmax(differences)
+
+    # Use the points around the maximum slope to fit a line
+    coefficients = polyfit(array(copy_minute)[max_index:max_index + 2],
+                           array(average)[max_index:max_index + 2], 3)
+
+    # Calculate the time to double the OD600
+    polynomial = poly1d(coefficients)
+    
+    return polynomial[1] * time + polynomial[0]  
+
+def calculate_stationary_od(data=None):
+    '''
+    
+    Broth determines the stationary phase?  
+    Calculate the average steady OD from the provided data.
+
+    Parameters
+    ----------
+    data : dict
+        Data collected using BioSpectrometer kinetic instrument. 
+        Should contain 'minute' and other keys with lists of measurements.
+
+    Returns
+    -------
+    float
+        The average steady state OD if data is available, otherwise None.
+    
+    '''
+    
+    # Return if no data is provided
+    if not data:
+        print("No data available to plot.")
+        return
+    
+    # Extract Data
+    data_copy =  copy.copy(data)
+    last_od = {key: values[-1] for key, values in data_copy.items()
+                   if key not in ('minute', 'total_volume')}
+    
+    # Calculate the final OD average point.
+    last_od_vector = array(list(last_od.values()))
+    
+    return mean(last_od_vector)
 
 class VolumeInformation:
     '''
+    
     Class to hold volume information for bacterial growth simulation.
+    
     '''
+    
     def __init__(self,total_volume=25, sample_volume=200, dilute_volume=1800):
         '''
+        
         Initialize the VolumeInformation class with the provided volumes.
 
         Parameters
@@ -195,20 +285,25 @@ class VolumeInformation:
         Returns
         -------
         None
+        
         '''
+        
         self.total_volume = total_volume
         self.sample_volume = sample_volume
         self.dilute_volume = dilute_volume
 
     def get_volumes(self):
         '''
-       Get the volume information.
+       
+        Get the volume information.
 
        Returns
        -------
        dict
            A dictionary containing the total volume, sample volume, and dilute volume.
-       '''
+       
+        '''
+        
         return {
     'total_volume': self.total_volume,
     'sample_volume': self.sample_volume,
@@ -217,11 +312,15 @@ class VolumeInformation:
 
 class TimeInformation:
     '''
+    
     Class to hold time information for bacterial growth simulation.
+    
     '''
+    
     def __init__(self,target_time=20,lagged_time=2*60, double_time=20,
-                 final_time=400):
+                 stationary_time=420, final_time=400):
         '''
+        
         Initialize the TimeInformation class with parameters for bacterial growth simulation.
 
         Parameters
@@ -240,35 +339,45 @@ class TimeInformation:
         Returns
         -------
         None
+        
         '''
 
         self.target_time = target_time
         self.lagged_time = lagged_time
         self.double_time = double_time
+        self.stationary_time = stationary_time
         self.final_time = final_time
 
     def get_time(self):
         '''
-       Get the time information.
+       
+        Get the time information.
 
        Returns
        -------
        dict
            A dictionary containing the target_time, lagged_time, double_time, final_time.
-       '''
+       
+        '''
+        
         return {
     'target_time': self.target_time,
     'lagged_time': self.lagged_time,
     'double_time': self.double_time,
+    'stationary_time': self.stationary_time,
     'final_time': self.final_time
                 }
 
 class CellInformation:
     '''
+    
     Class to hold cell information for bacterial growth simulation.
+    
     '''
+    
     def __init__(self,cell_mass=1e-6, cell_per_volume=1E9):
         '''
+        
         Initialize the CellInformation class with the provided cell mass and cell count per volume.
 
         Parameters
@@ -281,7 +390,9 @@ class CellInformation:
         Returns
         -------
         None
+        
         '''
+        
         self.cell_mass = cell_mass
         self.cell_per_volume = cell_per_volume
 
@@ -367,6 +478,7 @@ class Plot:
 
     def plot_result(self,read,dilute_conversion,time):
         '''
+        
         Plot and calculation linear interpolations the results of bacterial
         growth simulation
 
@@ -384,8 +496,10 @@ class Plot:
         target_amount : float64
             The target concentration in micrograms/mL corresponding with target time.
         target_original_count : float64
-            The target colony forming units corresponding with target time.            .
+            The target colony forming units corresponding with target time.
+            
         '''
+        
         target_time = self.target_time
         if target_time % 1 == 0:
             target_amount = read[int(target_time)]
@@ -426,6 +540,7 @@ class Plot:
 
     def plot_data(self, bacterial_title='Bacterial Growth'):
         '''
+        
         Plot the bacterial growth data representing symbols with all runs
         and calculates and plots the averages representing a line. The x-axis
         represents time (in hours), and the y-axis represents bacterial growth.
@@ -441,7 +556,9 @@ class Plot:
         Returns
         -------
         None
+        
         '''
+        
         data = self.data
         # extract data
         if not data:
@@ -472,7 +589,7 @@ class Plot:
         title(bacterial_title)
         legend()
         grid(True)
-        xticks(arange(0, math.ceil(self.final_time),20), rotation='vertical')
+        xticks(arange(0, math.ceil(minutes[-1]+(minutes[-1]-minutes[-2])),20), rotation='vertical')
         show()
         return
 
@@ -505,6 +622,7 @@ class Plot:
 
     def plot_data_model(self,read,time):
         '''
+        
         Plot the bacterial growth data average points and the Model.
 
         Parameters
@@ -517,8 +635,12 @@ class Plot:
         Returns
         -------
         None
+        
         '''
+        
+        # Retrieving data
         data = self.data
+        
         # Subplots model
         figure(figsize=(10,5))
         subplot(1,2,1)
@@ -544,10 +666,12 @@ class Plot:
         legend()
         grid(True)
         show()
+        
         return print('Data available to plot')
 
     def calculate_double_time(self):
         '''
+        
         Estimates the bacterial doubling time based on OD600 measurements. For
         instance, it calculates the time it takes for the OD600 to increase from 1 to 2.
         The initial OD600 times by 2 and returns the time it takes
@@ -562,7 +686,9 @@ class Plot:
         -------
         float64
             The time in minutes it takes the bacteria to double in size.
+        
         '''
+        # Retrieving data
         copy_minute = copy.copy(self.data['minute'])
         average = Plot.calculate_data_average(self)
         
@@ -577,27 +703,31 @@ class Plot:
         # Calculate the slopes between each pair of points
         differences = diff(y_axis) / diff(x_axis)
         
-        # Find the index of the maximum slope
-        max_index = argmax(differences)
+        # Calculate mean and standard deviation of the growth rates
+        mean_growth = mean(differences)
+        std_growth = std(differences)
+ 
+        # find growth phase of the data
+        xx = []
+        yy = []
+        for index, ele in enumerate(differences):
+            if ele > mean_growth + 0.05 * std_growth: # Define the threshold value (mean + n * std)
+                xx.append(x_axis[index+1])
+                yy.append(y_axis[index+1])
         
-        # Use the points around the maximum slope to fit a line
-        x_fit = x_axis[max_index:max_index + 2]
-        y_fit = y_axis[max_index:max_index + 2]
-        coefficients = polyfit(x_fit, y_fit, 1)
+        # Ensure there are enough points to perform regression
+        if len(xx) < 2:
+            print("Insufficient data points in the exponential phase.")
+            return None    
         
-        # Calculate the time to double the OD600
-        initial_value = y_fit[0]
-        target_value = initial_value * 2
-        polynomial = poly1d(coefficients)
+        # Perform linear regression
+        slope, intercept, r_value, p_value, std_err = linregress(xx, yy)
         
-        # Find the time at which the OD600 doubles
-        point_2 = (target_value - polynomial[0]) / polynomial[1]
-        point_1 = (initial_value - polynomial[0]) / polynomial[1]
-        return point_2 - point_1
-
+        return log(2)/slope
 
 class GrowthConfiguration:
     '''
+    
     Class to hold all configuration information for bacterial growth simulation.
 
         Parameters
@@ -617,18 +747,47 @@ class GrowthConfiguration:
         Returns
         -------
         None
+        
     '''
+    
     def __init__(self, volume_information, time_information, cell_information):
+        '''
+        Initialize the Plot class with the provided parameters.
+
+        Parameters
+        ----------
+        volume_information : VolumeInformation
+            An instance of the VolumeInformation class containing details about
+            the volumes involved in the simulation nsuch as total_volume,
+            sample_volume, and dilute_volume.
+        time_information : TimeInformation
+            An instance of the TimeInformation class containing details about
+            the timing of the simulation, such as lag time, target time,
+            doubling time, and final time.
+        cell_information : CellInformation
+            An instance of the CellInformation class containing details about
+            the cells, including cell mass and cells per volume.
+
+        Returns
+        -------
+        None.
+
+        '''
+        
         self.volume_information = volume_information
         self.time_information = time_information
         self.cell_information = cell_information
 
 class BacterialGrowth:
     '''
+    
     Class to simulate bacterial growth using given parameters.
+    
     '''
-    def __init__(self,initial_read=1, data=None, configuration=None):
+    
+    def __init__(self,initial_read=1,stationary_od=5,data=None, configuration=None):
         '''
+        
         Initialize the BacterialGrowth class with the provided parameters.
 
         Parameters
@@ -647,46 +806,20 @@ class BacterialGrowth:
         Returns
         -------
         None
+        
         '''
+        
         self.initial_read = initial_read
+        self.stationary_od = stationary_od
         self.data = data
         self.volume_information = configuration.volume_information
         self.time_information = configuration.time_information
         self.cell_information = configuration.cell_information
         self.validate_inputs()
 
-    def max_od600(self):
-        '''
-        ? I need to work on this. What is the maximum concentration per volume?
-        Calculate the maximum OD600 value based on the total volume. The function
-        determines the maximum concentration of bacterial cells per volume.
-        
-        Note: The calculation assumes 1 OD600 equals 1 microgram/mL, and the
-        maximum OD600 value is capped at 10.
-
-        Parameters:
-        -----------
-        None
-
-        Returns
-        -------
-        max_od : float
-            Maximum concentration in micro_g/mL.
-        '''
-        
-        total_volume = self.volume_information.total_volume # mL
-        
-        # Calculate the maximum OD based on the total volume.
-        if total_volume > 0:
-            # Normalizing the total volume to a standard reference (e.g., 1000 mL)
-            max_od = min(total_volume / 1000, 10)
-        else:
-            raise ValueError("Total volume must be greater than zero.")
-            
-        return max_od
-
     def calculate_growth_rate(self):
         '''
+        
     Calculate the growth rate value based on the doubling time in minutes.
 
     The growth rate (k) is calculated using the formula:
@@ -706,16 +839,20 @@ class BacterialGrowth:
     -------
     float
         The growth rate in units of 1/minutes.
+        
         '''
+        
         return log(2)/self.time_information.double_time #1/minutes
 
     def calculation_measurements(self):
         '''
-    ? Check equation?
+
     Calculate the growth curve for bacterial culture based on given parameters.
 
     This method simulates the bacterial growth curve over time and returns the
-    calculated values for dilute conversion, readings, and time points.
+    calculated values for dilute conversion, readings, and time points. The
+    logistic equation was derived from 
+    https://en.wikipedia.org/wiki/Logistic_function .
 
     The growth curve is modeled using the initial readings, dilution volumes,
     and other parameters provided during the initialization of the BacterialGrowth
@@ -741,46 +878,57 @@ class BacterialGrowth:
         and dilute conversions were calculated.
 
         '''
+        # Inputs
         lagged_time = self.time_information.lagged_time
+        stationary_time =  self.time_information.stationary_time
         final_time = self.time_information.final_time
         initial_read = self.initial_read
+        stationary_od = self.stationary_od
         sample_volume = self.volume_information.sample_volume
         dilute_volume = self.volume_information.dilute_volume
         total_volume = self.volume_information.total_volume
         cell_mass = self.cell_information.cell_mass
 
+        # Prepare vectors for For Loop
         dilute_conversion = zeros(final_time+1) #colony forming unit
         read = zeros(final_time+1) #colony forming unit
-        time = zeros(final_time+1) #MINUTE
-
-        dilute_conversion[0:round(lagged_time)] = (
-            initial_read*((sample_volume + dilute_volume)/sample_volume)
-            *total_volume/cell_mass #colony forming unit
-            )
-        read[0:round(lagged_time)] = initial_read
+        time = arange(0, final_time+1) #MINUTE
         
-        #
-        for index in range(round(lagged_time), final_time+1, 1):
-            read[index] = (
-                (BacterialGrowth.max_od600(self)) /
-                (1 + ((BacterialGrowth.max_od600(self)) - initial_read)/initial_read
-                              *exp(-(BacterialGrowth.calculate_growth_rate(self))
-                                  * (index-lagged_time+1))) #micr_g/mL
-                )
-            dilute_conversion[index] = (read[index]*((sample_volume + dilute_volume)
-                            /sample_volume)*total_volume/cell_mass #unitless
-                                    )
-            time[index] = index #minutes
+        # Lagged OD with respect with time.
+        read[0:round(lagged_time)+1] = initial_read #micrograms/mL 
+        dilute_conversion[0:round(lagged_time)+1] = (
+            initial_read*((sample_volume + dilute_volume)/sample_volume)
+            *total_volume/cell_mass 
+            ) #colony forming unit
+        
+        # Growth OD with respect with time
+        for index in range(1, final_time+1):
+            if round(lagged_time) + index - 1 >= len(read):
+                break
+            
+            # Logistic Equation
+            read[round(lagged_time)+index-1] = (
+                stationary_od / (1 + ((stationary_od - initial_read) / initial_read) 
+                    * exp(-BacterialGrowth.calculate_growth_rate(self) * index)) 
+                ) #micrograms/mL
+            
+            # Conversion from micrograms/mL to CFU
+            dilute_conversion[round(lagged_time)+index-1] = (read[index]*((sample_volume + dilute_volume)
+                            /sample_volume)*total_volume/cell_mass
+                                    )  #unitless
 
         return dilute_conversion,read,time
 
     def print_information(self,target_amount,target_original_count):
         '''
+        Print relative information
+        
         Parameters
         ----------
         print_variables : dict
             A dictionary containing the following keys:
     - initial_read : float
+    - stationary_od : float
     - total_volume : float
     - lagged_time : float
     - double_time : float
@@ -799,6 +947,7 @@ class BacterialGrowth:
         '''
         print_variables = {
             'initial_read': self.initial_read,
+            'stationary_od': self.stationary_od,
             'total_volume': self.volume_information.total_volume,
             'lagged_time': self.time_information.lagged_time,
             'double_time': self.time_information.double_time,
@@ -811,7 +960,8 @@ class BacterialGrowth:
             'target_original_count': target_original_count
         }
         print(f'''INPUTS:\n-----------
-initial read: {print_variables['initial_read']} micrograms/mL
+initial read: {print_variables['initial_read']:.2f} micrograms/mL
+stationary OD: {print_variables['stationary_od']:.2f} micrograms/mL
 original sample volume: {print_variables['total_volume']/1000} mL
 lagged time: {print_variables['lagged_time']} minutes
 double time: {print_variables['double_time']:.2f} minutes
@@ -837,6 +987,10 @@ target cell size in colony-forming Units: {print_variables['target_original_coun
         if (not isinstance(self.initial_read, (int, float))
             or self.initial_read < 0):
             raise ValueError("Initial read must be a non-negative number.")
+            
+        if (not isinstance(self.stationary_od, (int, float))
+            or self.stationary_od < 0):
+            raise ValueError("Stationary OD must be a non-negative number.")    
 
         if (not isinstance(self.volume_information.total_volume, (int, float))
             or self.volume_information.total_volume <= 0):
@@ -889,16 +1043,21 @@ target cell size in colony-forming Units: {print_variables['target_original_coun
         -------
 
         """
+        
+        # calculate the logistic equation
         dilute_conversion,read,time = BacterialGrowth.calculation_measurements(self)
+        
         # Subplot
         target_amount, target_original_count = (
         Plot(target_time=self.time_information.target_time)
         .plot_result(read, dilute_conversion, time)
         )
+        
         # Plot data with model
         Plot.plot_data_model(self,read,time)
-
+        
+        # print the information
         BacterialGrowth.print_information(self,target_amount,target_original_count)
 
         return read, dilute_conversion
-
+    
