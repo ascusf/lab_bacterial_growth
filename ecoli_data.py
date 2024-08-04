@@ -113,3 +113,18 @@ eppendorf_data = {
     "total_volume": [4.2],
     "1": [0.04,.05,.1,.75,1.4,2.5,3.75,4.3,4.3],
 }
+
+
+#----------------BROTH--------------------------------------------------------
+# Luria-Bertani (LB) broth:
+# lagged time is around 120 minutes, double time is around 60 minutes
+# stationary phase OD600 is around 4.3 micro_g/mL
+
+# Terrific Broth (TB):
+    
+# Super Broth (SB):
+    
+# 2x yeast extract-tryptone (YT):
+    
+    
+    
